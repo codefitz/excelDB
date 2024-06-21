@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>excelDB - simple Excel file query and export</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            cursor: pointer;
+            position: relative;
+        }
+        th::after {
+            content: "⇅";
+            font-size: 12px;
+            position: absolute;
+            right: 8px;
+            color: gray;
+        }
+        .sort-asc::after {
+            content: " ▲";
+            color: black;
+        }
+        .sort-desc::after {
+            content: " ▼";
+            color: black;
+        }
+        .highlight {
+            background-color: yellow;
+        }
+        #loading {
+            display: none;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .column-selection {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .column-selection label {
+            margin-right: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>excelDB - simple Excel file query and export</h1>
+    <input type="file" id="fileInput" />
+    <div id="loading">Loading, please wait...</div>
+    <div>
+        <label for="headerRowInput">Header Row (1-based index):</label>
+        <input type="number" id="headerRowInput" value="1" min="1" />
+    </div>
+    <div>
+        <label for="searchInput">Search:</label>
+        <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search..."/>
+        <button onclick="clearSearch()">Clear Search</button>
+        <button onclick="copyRows()">Copy Displayed Rows</button>
+        <button onclick="copySelectedRows()">Copy Selected Rows</button>
+        <button onclick="clearSelection()">Clear Selection</button>
+        <select id="exportFormat">
+            <option value="tab">Tab-Separated</option>
+            <option value="csv">CSV</option>
+        </select>
+    </div>
+    <div id="columnSelection" class="column-selection" style="display:none;">
+        <label>Select columns to display:</label>
+        <button onclick="selectAllColumns()">Select All</button>
+        <button onclick="deselectAllColumns()">Deselect All</button><br>
+    </div>
+    <select id="sheetSelect" style="display:none;"></select>
+    <button id="loadDataButton" style="display:none;">Load Data</button>
+    <table id="excelTable">
+        <thead></thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        let workbook;  // To store the workbook object
+        let tableData = [];  // To store the current table data for sorting and searching
+        let filteredData = []; // To store the filtered table data based on search
+        let headers = []; // To store the header row
+        let columnSelection = []; // To store selected columns
+
+        document.getElementById('fileInput').addEventListener('change', handleFile, false);
+        document.getElementById('sheetSelect').addEventListener('change', handleSelectionChange, false);
+        document.getElementById('headerRowInput').addEventListener('change', handleSelectionChange, false);
+        document.getElementById('loadDataButton').addEventListener('click', handleLoadData, false);
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            document.getElementById('loading').style.display = 'block';
+
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                workbook = XLSX.read(data, {type: 'array'});
+                const sheetSelect = document.getElementById('sheetSelect');
+                
+                sheetSelect.innerHTML = '';  // Clear any existing options
+                workbook.SheetNames.forEach((sheetName, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.text = sheetName;
+                    sheetSelect.appendChild(option);
+                });
+
+                sheetSelect.style.display = 'block';  // Show the sheet selector
+                document.getElementById('loadDataButton').style.display = 'block';  // Show the Load Data button
+                document.getElementById('loading').style.display = 'none';
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleSelectionChange() {
+            // Just enabling the load data button if not enabled already
+            const loadDataButton = document.getElementById('loadDataButton');
+            if (loadDataButton.style.display === 'none') {
+                loadDataButton.style.display = 'block';
+            }
+        }
+
+        function handleLoadData() {
+            const sheetIndex = document.getElementById('sheetSelect').value;
+            document.getElementById('loading').style.display = 'block';
+            setTimeout(() => {
+                displayData(workbook.Sheets[workbook.SheetNames[sheetIndex]]);
+                document.getElementById('loading').style.display = 'none';
+            }, 100);  // Use a short delay to allow the DOM to update
+        }
+
+        function displayData(worksheet) {
+            const headerRow = parseInt(document.getElementById('headerRowInput').value) - 1;
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+            const tableHead = document.querySelector('#excelTable thead');
+            const tableBody = document.querySelector('#excelTable tbody');
+
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
+
+            // Determine the maximum number of columns
+            const maxCols = Math.max(...jsonData.map(row => row.length));
+
+            // Store table data for sorting and searching
+            tableData = jsonData.slice(headerRow + 1);
+            filteredData = tableData.slice();
+
+            // Store headers
+            headers = jsonData[headerRow];
+
+            // Display column selection checkboxes
+            const columnSelectionDiv = document.getElementById('columnSelection');
+            columnSelectionDiv.innerHTML = '<label>Select columns to display:</label><button onclick="selectAllColumns()">Select All</button><button onclick="deselectAllColumns()">Deselect All</button><br>';
+            headers.forEach((header, index) => {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `col-${index}`;
+                checkbox.value = index;
+                checkbox.checked = true;
+                checkbox.addEventListener('change', handleColumnSelectionChange);
+                const label = document.createElement('label');
+                label.htmlFor = `col-${index}`;
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(header));
+                columnSelectionDiv.appendChild(label);
+            });
+            columnSelectionDiv.style.display = 'flex';
+
+            // Set initial column selection to all columns
+            columnSelection = headers.map((_, index) => index);
+
+            // Append headers
+            let headerHtml = '<tr><th></th>'; // Add an extra header for the checkbox column
+            headers.forEach((header, index) => {
+                headerHtml += `<th id="header-${index}" onclick="sortTable(${index})" data-order="none">${header || ''}</th>`;
+            });
+            headerHtml += '</tr>';
+            tableHead.innerHTML = headerHtml;
+
+            // Append rows
+            updateTableBody(filteredData, maxCols);
+        }
+
+        function handleColumnSelectionChange(event) {
+            const columnIndex = parseInt(event.target.value);
+            if (event.target.checked) {
+                if (!columnSelection.includes(columnIndex)) {
+                    columnSelection.push(columnIndex);
+                }
+            } else {
+                columnSelection = columnSelection.filter(index => index !== columnIndex);
+            }
+            columnSelection.sort((a, b) => a - b); // Sort the column selection array to maintain order
+            updateTableBody(filteredData, headers.length);
+            updateTableHeader();
+        }
+
+        function updateTableBody(data, maxCols, highlightSearch = false) {
+            const tableBody = document.querySelector('#excelTable tbody');
+            const searchInput = document.getElementById('searchInput').value.toLowerCase();
+            tableBody.innerHTML = '';
+
+            data.forEach((row, index) => {
+                let rowData = `<tr><td><input type="checkbox" class="row-checkbox" data-index="${index}"></td>`;
+                columnSelection.forEach(i => {
+                    const cellValue = row[i] || '';
+                    const highlightClass = highlightSearch && cellValue.toString().toLowerCase().includes(searchInput) ? 'highlight' : '';
+                    rowData += `<td class="${highlightClass}">${cellValue}</td>`;
+                });
+                rowData += '</tr>';
+                tableBody.innerHTML += rowData;
+            });
+        }
+
+        function updateTableHeader() {
+            const headersRow = document.querySelector('#excelTable thead tr');
+            headersRow.innerHTML = '<th></th>'; // Add an extra header for the checkbox column
+            columnSelection.forEach(index => {
+                headersRow.innerHTML += `<th id="header-${index}" onclick="sortTable(${index})" data-order="none">${headers[index] || ''}</th>`;
+            });
+        }
+
+        function sortTable(columnIndex) {
+            const headers = document.querySelectorAll('th');
+            const currentOrder = headers[columnSelection.indexOf(columnIndex) + 1].getAttribute('data-order'); // Adjust for checkbox column
+            const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+
+            // Sort the filtered data
+            filteredData.sort((a, b) => {
+                if (a[columnIndex] === undefined) return 1;
+                if (b[columnIndex] === undefined) return -1;
+                if (newOrder === 'asc') {
+                    return (a[columnIndex] > b[columnIndex]) ? 1 : ((a[columnIndex] < b[columnIndex]) ? -1 : 0);
+                } else {
+                    return (a[columnIndex] < b[columnIndex]) ? 1 : ((a[columnIndex] > b[columnIndex]) ? -1 : 0);
+                }
+            });
+
+            // Remove sort classes from all headers
+            headers.forEach(header => {
+                header.classList.remove('sort-asc', 'sort-desc');
+                header.setAttribute('data-order', 'none');
+            });
+
+            // Add sort class to the sorted column header
+            headers[columnSelection.indexOf(columnIndex) + 1].classList.add(newOrder === 'asc' ? 'sort-asc' : 'sort-desc'); // Adjust for checkbox column
+            headers[columnSelection.indexOf(columnIndex) + 1].setAttribute('data-order', newOrder);
+
+            // Update the table body with sorted data
+            updateTableBody(filteredData, headers.length, true); // Adjust for checkbox column
+        }
+
+        function handleSearch() {
+            const searchInput = document.getElementById('searchInput').value.toLowerCase();
+            filteredData = tableData.filter(row => 
+                row.some(cell => cell && cell.toString().toLowerCase().includes(searchInput))
+            );
+
+            updateTableBody(filteredData, headers.length, searchInput.length > 0);
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            filteredData = tableData.slice();
+            updateTableBody(filteredData, headers.length);
+        }
+
+        function clearSelection() {
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(checkbox => checkbox.checked = false);
+        }
+
+        function selectAllColumns() {
+            const columnCheckboxes = document.querySelectorAll('#columnSelection input[type="checkbox"]');
+            columnCheckboxes.forEach(checkbox => checkbox.checked = true);
+            columnSelection = headers.map((_, index) => index);
+            updateTableHeader();
+            updateTableBody(filteredData, headers.length);
+        }
+
+        function deselectAllColumns() {
+            const columnCheckboxes = document.querySelectorAll('#columnSelection input[type="checkbox"]');
+            columnCheckboxes.forEach(checkbox => checkbox.checked = false);
+            columnSelection = [];
+            updateTableHeader();
+            updateTableBody(filteredData, headers.length);
+        }
+
+        function copyRows() {
+            const exportFormat = document.getElementById('exportFormat').value;
+            const delimiter = exportFormat === 'csv' ? ',' : '\t';
+            const dataToCopy = filteredData.length ? filteredData : tableData;
+            const selectedHeaders = columnSelection.map(index => headers[index]);
+            const csvContent = [selectedHeaders.join(delimiter), ...dataToCopy.map(row => columnSelection.map(index => row[index]).join(delimiter))].join('\n');
+            const textArea = document.createElement('textarea');
+            textArea.value = csvContent;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('Displayed rows copied to clipboard!');
+        }
+
+        function copySelectedRows() {
+            const exportFormat = document.getElementById('exportFormat').value;
+            const delimiter = exportFormat === 'csv' ? ',' : '\t';
+            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+            const selectedIndexes = Array.from(checkboxes).map(checkbox => parseInt(checkbox.getAttribute('data-index')));
+            const selectedRows = selectedIndexes.map(index => filteredData[index]);
+            const selectedHeaders = columnSelection.map(index => headers[index]);
+            const csvContent = [selectedHeaders.join(delimiter), ...selectedRows.map(row => columnSelection.map(index => row[index]).join(delimiter))].join('\n');
+            const textArea = document.createElement('textarea');
+            textArea.value = csvContent;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('Selected rows copied to clipboard!');
+        }
+    </script>
+</body>
+</html>
