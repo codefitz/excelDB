@@ -1,6 +1,6 @@
 # excelDB - Simple Excel File Query and Export
 
-excelDB is a lightweight web-based tool that allows you to easily query and export data from Excel files. With excelDB, you can upload an Excel file, search through the data, select specific columns and rows, and export the filtered data in either tab-separated or CSV format.
+excelDB is a lightweight web-based tool that allows you to easily query and export data from Excel files. With excelDB, you can upload an Excel file, search through the data, select specific columns and rows, and export the filtered data in either tab-separated, CSV, or Excel format.
 
 ## Features
 
@@ -9,7 +9,8 @@ excelDB is a lightweight web-based tool that allows you to easily query and expo
 - Search through the data
 - Sort data by column
 - Copy displayed rows or selected rows to clipboard
-- Export data in tab-separated or CSV format
+- Export data in tab-separated, CSV, or Excel format
+- Show only selected rows
 
 ## Getting Started
 
@@ -39,7 +40,10 @@ To use excelDB, you'll need a web browser with JavaScript enabled.
 6. Click the column headers to sort the data.
 7. Use the "Copy Displayed Rows" button to copy the filtered and displayed rows to the clipboard.
 8. Use the "Copy Selected Rows" button to copy the selected rows to the clipboard.
-9. Select the export format (Tab-separated or CSV) before copying.
+9. Use the "Export to Excel" button to export the displayed rows to an Excel file.
+10. Use the "Show Only Selected" button to display only the selected rows.
+11. Use the "Clear Search and Selection" button to reset the search and clear all selections.
+12. Select the export format (Tab-separated or CSV) before copying.
 
 ## Versioning
 
@@ -48,6 +52,7 @@ excelDB uses [Semantic Versioning](https://semver.org/) for versioning.
 | Version | Description                                                                                          | Date       |
 |---------|------------------------------------------------------------------------------------------------------|------------|
 | v0.1.0  | Initial commit: Added core functionality for uploading, displaying, and exporting Excel file data.   | 2024-06-21 |
+| v0.1.1  | Added Excel export, merged clear buttons, fixed date display.                                        | 2024-06-25 |
 
 
 ## Acknowledgments

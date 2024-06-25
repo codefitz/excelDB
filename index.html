@@ -63,10 +63,11 @@
     <div>
         <label for="searchInput">Search:</label>
         <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search..."/>
-        <button onclick="clearSearch()">Clear Search</button>
+        <button onclick="clearSearchAndSelection()">Clear Search and Selection</button>
         <button onclick="copyRows()">Copy Displayed Rows</button>
         <button onclick="copySelectedRows()">Copy Selected Rows</button>
-        <button onclick="clearSelection()">Clear Selection</button>
+        <button onclick="exportToExcel()">Export to Excel</button>
+        <button onclick="showOnlySelected()">Show Only Selected</button>
         <select id="exportFormat">
             <option value="tab">Tab-Separated</option>
             <option value="csv">CSV</option>
@@ -142,7 +143,7 @@
 
         function displayData(worksheet) {
             const headerRow = parseInt(document.getElementById('headerRowInput').value) - 1;
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, raw: false, dateNF: 'YYYY-MM-DD'});
             const tableHead = document.querySelector('#excelTable thead');
             const tableBody = document.querySelector('#excelTable tbody');
 
@@ -215,8 +216,9 @@
                 let rowData = `<tr><td><input type="checkbox" class="row-checkbox" data-index="${index}"></td>`;
                 columnSelection.forEach(i => {
                     const cellValue = row[i] || '';
-                    const highlightClass = highlightSearch && cellValue.toString().toLowerCase().includes(searchInput) ? 'highlight' : '';
-                    rowData += `<td class="${highlightClass}">${cellValue}</td>`;
+                    const displayValue = XLSX.SSF.format('YYYY-MM-DD', cellValue); // Format date cells
+                    const highlightClass = highlightSearch && displayValue.toString().toLowerCase().includes(searchInput) ? 'highlight' : '';
+                    rowData += `<td class="${highlightClass}">${displayValue}</td>`;
                 });
                 rowData += '</tr>';
                 tableBody.innerHTML += rowData;
@@ -270,10 +272,11 @@
             updateTableBody(filteredData, headers.length, searchInput.length > 0);
         }
 
-        function clearSearch() {
+        function clearSearchAndSelection() {
             document.getElementById('searchInput').value = '';
             filteredData = tableData.slice();
             updateTableBody(filteredData, headers.length);
+            clearSelection();
         }
 
         function clearSelection() {
@@ -300,7 +303,7 @@
         function copyRows() {
             const exportFormat = document.getElementById('exportFormat').value;
             const delimiter = exportFormat === 'csv' ? ',' : '\t';
-            const dataToCopy = filteredData.length ? filteredData : tableData;
+            const dataToCopy = filteredData;
             const selectedHeaders = columnSelection.map(index => headers[index]);
             const csvContent = [selectedHeaders.join(delimiter), ...dataToCopy.map(row => columnSelection.map(index => row[index]).join(delimiter))].join('\n');
             const textArea = document.createElement('textarea');
@@ -327,6 +330,22 @@
             document.execCommand('copy');
             document.body.removeChild(textArea);
             alert('Selected rows copied to clipboard!');
+        }
+
+        function exportToExcel() {
+            const selectedHeaders = columnSelection.map(index => headers[index]);
+            const exportData = [selectedHeaders, ...filteredData.map(row => columnSelection.map(index => row[index]))];
+            const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+            XLSX.writeFile(workbook, 'exported_data.xlsx');
+        }
+
+        function showOnlySelected() {
+            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+            const selectedIndexes = Array.from(checkboxes).map(checkbox => parseInt(checkbox.getAttribute('data-index')));
+            const selectedRows = selectedIndexes.map(index => filteredData[index]);
+            updateTableBody(selectedRows, headers.length);
         }
     </script>
 </body>
