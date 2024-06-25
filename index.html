@@ -50,15 +50,31 @@
         .column-selection label {
             margin-right: 15px;
         }
+        .primary-key {
+            background-color: lightblue;
+        }
+        #message {
+            display: none;
+            font-size: 18px;
+            font-weight: bold;
+            color: red;
+        }
     </style>
 </head>
 <body>
     <h1>excelDB - simple Excel file query and export</h1>
     <input type="file" id="fileInput" />
     <div id="loading">Loading, please wait...</div>
+    <div id="message">Blank sheet</div>
     <div>
         <label for="headerRowInput">Header Row (1-based index):</label>
         <input type="number" id="headerRowInput" value="1" min="1" />
+    </div>
+    <div>
+        <label for="primaryKeySelect">Primary Key:</label>
+        <select id="primaryKeySelect">
+            <option value="">None</option>
+        </select>
     </div>
     <div>
         <label for="searchInput">Search:</label>
@@ -91,17 +107,20 @@
         let filteredData = []; // To store the filtered table data based on search
         let headers = []; // To store the header row
         let columnSelection = []; // To store selected columns
+        let primaryKeyIndex = -1; // To store the selected primary key column index
 
         document.getElementById('fileInput').addEventListener('change', handleFile, false);
         document.getElementById('sheetSelect').addEventListener('change', handleSelectionChange, false);
         document.getElementById('headerRowInput').addEventListener('change', handleSelectionChange, false);
         document.getElementById('loadDataButton').addEventListener('click', handleLoadData, false);
+        document.getElementById('primaryKeySelect').addEventListener('change', handlePrimaryKeyChange, false);
 
         function handleFile(event) {
             const file = event.target.files[0];
             const reader = new FileReader();
 
             document.getElementById('loading').style.display = 'block';
+            document.getElementById('message').style.display = 'none';
 
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
@@ -135,10 +154,25 @@
         function handleLoadData() {
             const sheetIndex = document.getElementById('sheetSelect').value;
             document.getElementById('loading').style.display = 'block';
+            document.getElementById('message').style.display = 'none';
             setTimeout(() => {
-                displayData(workbook.Sheets[workbook.SheetNames[sheetIndex]]);
-                document.getElementById('loading').style.display = 'none';
+                const worksheet = workbook.Sheets[workbook.SheetNames[sheetIndex]];
+                if (!worksheet || XLSX.utils.sheet_to_json(worksheet).length === 0) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('message').style.display = 'block';
+                    document.querySelector('#excelTable thead').innerHTML = '';
+                    document.querySelector('#excelTable tbody').innerHTML = '';
+                } else {
+                    displayData(worksheet);
+                    document.getElementById('loading').style.display = 'none';
+                }
             }, 100);  // Use a short delay to allow the DOM to update
+        }
+
+        function handlePrimaryKeyChange() {
+            const primaryKeySelect = document.getElementById('primaryKeySelect');
+            primaryKeyIndex = primaryKeySelect.value ? parseInt(primaryKeySelect.value) : -1;
+            updateTableBody(filteredData, headers.length);
         }
 
         function displayData(worksheet) {
@@ -159,6 +193,16 @@
 
             // Store headers
             headers = jsonData[headerRow];
+
+            // Populate primary key select options
+            const primaryKeySelect = document.getElementById('primaryKeySelect');
+            primaryKeySelect.innerHTML = '<option value="">None</option>';
+            headers.forEach((header, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.text = header;
+                primaryKeySelect.appendChild(option);
+            });
 
             // Display column selection checkboxes
             const columnSelectionDiv = document.getElementById('columnSelection');
@@ -184,7 +228,8 @@
             // Append headers
             let headerHtml = '<tr><th></th>'; // Add an extra header for the checkbox column
             headers.forEach((header, index) => {
-                headerHtml += `<th id="header-${index}" onclick="sortTable(${index})" data-order="none">${header || ''}</th>`;
+                const primaryKeyClass = (primaryKeyIndex === index) ? 'primary-key' : '';
+                headerHtml += `<th id="header-${index}" onclick="sortTable(${index})" data-order="none" class="${primaryKeyClass}">${header || ''}</th>`;
             });
             headerHtml += '</tr>';
             tableHead.innerHTML = headerHtml;
@@ -215,10 +260,11 @@
             data.forEach((row, index) => {
                 let rowData = `<tr><td><input type="checkbox" class="row-checkbox" data-index="${index}"></td>`;
                 columnSelection.forEach(i => {
-                    const cellValue = row[i] || '';
-                    const displayValue = XLSX.SSF.format('YYYY-MM-DD', cellValue); // Format date cells
+                    let cellValue = row[i] || '';
+                    let displayValue = XLSX.SSF.format('YYYY-MM-DD', cellValue); // Format date cells
                     const highlightClass = highlightSearch && displayValue.toString().toLowerCase().includes(searchInput) ? 'highlight' : '';
-                    rowData += `<td class="${highlightClass}">${displayValue}</td>`;
+                    const primaryKeyClass = (primaryKeyIndex === i) ? 'primary-key' : '';
+                    rowData += `<td class="${highlightClass} ${primaryKeyClass}">${displayValue}</td>`;
                 });
                 rowData += '</tr>';
                 tableBody.innerHTML += rowData;
@@ -229,7 +275,8 @@
             const headersRow = document.querySelector('#excelTable thead tr');
             headersRow.innerHTML = '<th></th>'; // Add an extra header for the checkbox column
             columnSelection.forEach(index => {
-                headersRow.innerHTML += `<th id="header-${index}" onclick="sortTable(${index})" data-order="none">${headers[index] || ''}</th>`;
+                const primaryKeyClass = (primaryKeyIndex === index) ? 'primary-key' : '';
+                headersRow.innerHTML += `<th id="header-${index}" onclick="sortTable(${index})" data-order="none" class="${primaryKeyClass}">${headers[index] || ''}</th>`;
             });
         }
 
