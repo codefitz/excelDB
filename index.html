@@ -59,6 +59,22 @@
             font-weight: bold;
             color: red;
         }
+        .record-view {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .record-view div {
+            margin: 5px;
+            padding: 5px;
+            border: 1px solid #000;
+            flex: 1 1 calc(33.33% - 10px);
+            box-sizing: border-box;
+        }
+        .navigation-buttons {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -78,7 +94,7 @@
     </div>
     <div>
         <label for="searchInput">Search:</label>
-        <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search..."/>
+        <input type="text" id="searchInput" placeholder="Search..."/>
         <button onclick="clearSearchAndSelection()">Clear Search and Selection</button>
         <button onclick="copyRows()">Copy Displayed Rows</button>
         <button onclick="copySelectedRows()">Copy Selected Rows</button>
@@ -94,108 +110,168 @@
         <button onclick="selectAllColumns()">Select All</button>
         <button onclick="deselectAllColumns()">Deselect All</button><br>
     </div>
+    <div>
+        <label for="displayOption">Display Option:</label>
+        <select id="displayOption">
+            <option value="all">Show All Records</option>
+            <option value="single">Show Single Record</option>
+            <option value="ten" selected>Show 10 Records at a Time</option>
+        </select>
+    </div>
     <select id="sheetSelect" style="display:none;"></select>
     <button id="loadDataButton" style="display:none;">Load Data</button>
+    
+    <div id="secondSheetControls" style="display:none;">
+        <h2>Second Sheet</h2>
+        <div>
+            <label for="headerRowInput2">Header Row (1-based index):</label>
+            <input type="number" id="headerRowInput2" value="1" min="1" />
+        </div>
+        <div>
+            <label for="primaryKeySelect2">Primary Key:</label>
+            <select id="primaryKeySelect2">
+                <option value="">None</option>
+            </select>
+        </div>
+        <select id="sheetSelect2" style="display:none;"></select>
+        <button id="loadDataButton2" style="display:none;">Load Second Sheet Data</button>
+    </div>
+    
     <table id="excelTable">
         <thead></thead>
         <tbody></tbody>
     </table>
+    <div id="recordView" class="record-view" style="display:none;"></div>
+    <div id="navigationButtons" class="navigation-buttons" style="display:none;">
+        <button onclick="previousRecord()">Previous</button>
+        <button onclick="nextRecord()">Next</button>
+    </div>
+    <table id="excelTable2">
+        <thead></thead>
+        <tbody></tbody>
+    </table>
+    <div id="recordView2" class="record-view" style="display:none;"></div>
+    <div id="navigationButtons2" class="navigation-buttons" style="display:none;">
+        <button onclick="previousRecord2()">Previous</button>
+        <button onclick="nextRecord2()">Next</button>
+    </div>
 
     <script>
-        let workbook;  // To store the workbook object
-        let tableData = [];  // To store the current table data for sorting and searching
-        let filteredData = []; // To store the filtered table data based on search
-        let headers = []; // To store the header row
-        let columnSelection = []; // To store selected columns
-        let primaryKeyIndex = -1; // To store the selected primary key column index
+        let workbook, tableData = [], filteredData = [], headers = [], columnSelection = [], primaryKeyIndex = -1, currentRecordIndex = 0, displayOption = 'ten';
+        let tableData2 = [], filteredData2 = [], headers2 = [], columnSelection2 = [], primaryKeyIndex2 = -1, currentRecordIndex2 = 0;
+        
+        const debounce = (func, wait) => {
+            let timeout;
+            return (...args) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        };
 
-        document.getElementById('fileInput').addEventListener('change', handleFile, false);
-        document.getElementById('sheetSelect').addEventListener('change', handleSelectionChange, false);
-        document.getElementById('headerRowInput').addEventListener('change', handleSelectionChange, false);
-        document.getElementById('loadDataButton').addEventListener('click', handleLoadData, false);
-        document.getElementById('primaryKeySelect').addEventListener('change', handlePrimaryKeyChange, false);
-
-        function handleFile(event) {
+        const $ = id => document.getElementById(id);
+        const handleFile = event => {
             const file = event.target.files[0];
             const reader = new FileReader();
 
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('message').style.display = 'none';
+            $('loading').style.display = 'block';
+            $('message').style.display = 'none';
 
-            reader.onload = function(e) {
+            reader.onload = e => {
                 const data = new Uint8Array(e.target.result);
-                workbook = XLSX.read(data, {type: 'array'});
-                const sheetSelect = document.getElementById('sheetSelect');
+                workbook = XLSX.read(data, { type: 'array' });
+                const sheetSelect = $('sheetSelect');
+                const sheetSelect2 = $('sheetSelect2');
                 
-                sheetSelect.innerHTML = '';  // Clear any existing options
+                sheetSelect.innerHTML = sheetSelect2.innerHTML = '';
                 workbook.SheetNames.forEach((sheetName, index) => {
                     const option = document.createElement('option');
                     option.value = index;
                     option.text = sheetName;
                     sheetSelect.appendChild(option);
+                    const option2 = document.createElement('option');
+                    option2.value = index;
+                    option2.text = sheetName;
+                    sheetSelect2.appendChild(option2);
                 });
 
-                sheetSelect.style.display = 'block';  // Show the sheet selector
-                document.getElementById('loadDataButton').style.display = 'block';  // Show the Load Data button
-                document.getElementById('loading').style.display = 'none';
+                sheetSelect.style.display = sheetSelect2.style.display = 'block';
+                $('loadDataButton').style.display = $('loadDataButton2').style.display = 'block';
+                $('loading').style.display = 'none';
             };
 
             reader.readAsArrayBuffer(file);
-        }
+        };
 
-        function handleSelectionChange() {
-            // Just enabling the load data button if not enabled already
-            const loadDataButton = document.getElementById('loadDataButton');
-            if (loadDataButton.style.display === 'none') {
-                loadDataButton.style.display = 'block';
-            }
-        }
+        const handleSelectionChange = () => $('loadDataButton').style.display = 'block';
+        const handleSelectionChange2 = () => $('loadDataButton2').style.display = 'block';
 
-        function handleLoadData() {
-            const sheetIndex = document.getElementById('sheetSelect').value;
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('message').style.display = 'none';
+        const handleLoadData = () => {
+            const sheetIndex = $('sheetSelect').value;
+            $('loading').style.display = 'block';
+            $('message').style.display = 'none';
             setTimeout(() => {
                 const worksheet = workbook.Sheets[workbook.SheetNames[sheetIndex]];
                 if (!worksheet || XLSX.utils.sheet_to_json(worksheet).length === 0) {
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('message').style.display = 'block';
-                    document.querySelector('#excelTable thead').innerHTML = '';
-                    document.querySelector('#excelTable tbody').innerHTML = '';
+                    $('loading').style.display = 'none';
+                    $('message').style.display = 'block';
+                    $('excelTable').querySelector('thead').innerHTML = '';
+                    $('excelTable').querySelector('tbody').innerHTML = '';
                 } else {
                     displayData(worksheet);
-                    document.getElementById('loading').style.display = 'none';
+                    $('loading').style.display = 'none';
                 }
-            }, 100);  // Use a short delay to allow the DOM to update
-        }
+            }, 100);
+        };
 
-        function handlePrimaryKeyChange() {
-            const primaryKeySelect = document.getElementById('primaryKeySelect');
-            primaryKeyIndex = primaryKeySelect.value ? parseInt(primaryKeySelect.value) : -1;
-            updateTableBody(filteredData, headers.length);
-        }
+        const handleLoadData2 = () => {
+            const sheetIndex = $('sheetSelect2').value;
+            $('loading').style.display = 'block';
+            $('message').style.display = 'none';
+            setTimeout(() => {
+                const worksheet = workbook.Sheets[workbook.SheetNames[sheetIndex]];
+                if (!worksheet || XLSX.utils.sheet_to_json(worksheet).length === 0) {
+                    $('loading').style.display = 'none';
+                    $('message').style.display = 'block';
+                    $('excelTable2').querySelector('thead').innerHTML = '';
+                    $('excelTable2').querySelector('tbody').innerHTML = '';
+                } else {
+                    displayData2(worksheet);
+                    $('loading').style.display = 'none';
+                }
+            }, 100);
+        };
 
-        function displayData(worksheet) {
-            const headerRow = parseInt(document.getElementById('headerRowInput').value) - 1;
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, raw: false, dateNF: 'YYYY-MM-DD'});
-            const tableHead = document.querySelector('#excelTable thead');
-            const tableBody = document.querySelector('#excelTable tbody');
+        const handlePrimaryKeyChange = () => {
+            primaryKeyIndex = $('primaryKeySelect').value ? parseInt($('primaryKeySelect').value) : -1;
+            updateTableBody(filteredData);
+        };
 
-            tableHead.innerHTML = '';
-            tableBody.innerHTML = '';
+        const handlePrimaryKeyChange2 = () => {
+            primaryKeyIndex2 = $('primaryKeySelect2').value ? parseInt($('primaryKeySelect2').value) : -1;
+            updateTableBody2(filteredData2);
+        };
 
-            // Determine the maximum number of columns
+        const handleDisplayOptionChange = () => {
+            displayOption = $('displayOption').value;
+            currentRecordIndex = 0;
+            updateDisplay();
+            $('secondSheetControls').style.display = (displayOption === 'single') ? 'block' : 'none';
+        };
+
+        const displayData = worksheet => {
+            const headerRow = parseInt($('headerRowInput').value) - 1;
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF: 'YYYY-MM-DD' });
+            const tableHead = $('excelTable').querySelector('thead');
+            const tableBody = $('excelTable').querySelector('tbody');
+
+            tableHead.innerHTML = tableBody.innerHTML = '';
+
             const maxCols = Math.max(...jsonData.map(row => row.length));
-
-            // Store table data for sorting and searching
             tableData = jsonData.slice(headerRow + 1);
             filteredData = tableData.slice();
-
-            // Store headers
             headers = jsonData[headerRow];
 
-            // Populate primary key select options
-            const primaryKeySelect = document.getElementById('primaryKeySelect');
+            const primaryKeySelect = $('primaryKeySelect');
             primaryKeySelect.innerHTML = '<option value="">None</option>';
             headers.forEach((header, index) => {
                 const option = document.createElement('option');
@@ -204,8 +280,7 @@
                 primaryKeySelect.appendChild(option);
             });
 
-            // Display column selection checkboxes
-            const columnSelectionDiv = document.getElementById('columnSelection');
+            const columnSelectionDiv = $('columnSelection');
             columnSelectionDiv.innerHTML = '<label>Select columns to display:</label><button onclick="selectAllColumns()">Select All</button><button onclick="deselectAllColumns()">Deselect All</button><br>';
             headers.forEach((header, index) => {
                 const checkbox = document.createElement('input');
@@ -222,11 +297,9 @@
             });
             columnSelectionDiv.style.display = 'flex';
 
-            // Set initial column selection to all columns
             columnSelection = headers.map((_, index) => index);
 
-            // Append headers
-            let headerHtml = '<tr><th></th>'; // Add an extra header for the checkbox column
+            let headerHtml = '<tr><th></th>';
             headers.forEach((header, index) => {
                 const primaryKeyClass = (primaryKeyIndex === index) ? 'primary-key' : '';
                 headerHtml += `<th id="header-${index}" onclick="sortTable(${index})" data-order="none" class="${primaryKeyClass}">${header || ''}</th>`;
@@ -234,121 +307,186 @@
             headerHtml += '</tr>';
             tableHead.innerHTML = headerHtml;
 
-            // Append rows
-            updateTableBody(filteredData, maxCols);
-        }
+            updateDisplay();
+        };
 
-        function handleColumnSelectionChange(event) {
+        const displayData2 = worksheet => {
+            const headerRow = parseInt($('headerRowInput2').value) - 1;
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF: 'YYYY-MM-DD' });
+            const tableHead = $('excelTable2').querySelector('thead');
+            const tableBody = $('excelTable2').querySelector('tbody');
+
+            tableHead.innerHTML = tableBody.innerHTML = '';
+
+            const maxCols = Math.max(...jsonData.map(row => row.length));
+            tableData2 = jsonData.slice(headerRow + 1);
+            filteredData2 = tableData2.slice();
+            headers2 = jsonData[headerRow];
+
+            const primaryKeySelect2 = $('primaryKeySelect2');
+            primaryKeySelect2.innerHTML = '<option value="">None</option>';
+            headers2.forEach((header, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.text = header;
+                primaryKeySelect2.appendChild(option);
+            });
+
+            columnSelection2 = headers2.map((_, index) => index);
+
+            let headerHtml = '<tr><th></th>';
+            headers2.forEach((header, index) => {
+                const primaryKeyClass = (primaryKeyIndex2 === index) ? 'primary-key' : '';
+                headerHtml += `<th id="header2-${index}" onclick="sortTable2(${index})" data-order="none" class="${primaryKeyClass}">${header || ''}</th>`;
+            });
+            headerHtml += '</tr>';
+            tableHead.innerHTML = headerHtml;
+
+            updateTableBody2(filteredData2);
+        };
+
+        const handleColumnSelectionChange = event => {
             const columnIndex = parseInt(event.target.value);
             if (event.target.checked) {
-                if (!columnSelection.includes(columnIndex)) {
-                    columnSelection.push(columnIndex);
-                }
+                if (!columnSelection.includes(columnIndex)) columnSelection.push(columnIndex);
             } else {
                 columnSelection = columnSelection.filter(index => index !== columnIndex);
             }
-            columnSelection.sort((a, b) => a - b); // Sort the column selection array to maintain order
-            updateTableBody(filteredData, headers.length);
+            columnSelection.sort((a, b) => a - b);
+            updateDisplay();
             updateTableHeader();
-        }
+        };
 
-        function updateTableBody(data, maxCols, highlightSearch = false) {
-            const tableBody = document.querySelector('#excelTable tbody');
-            const searchInput = document.getElementById('searchInput').value.toLowerCase();
+        const updateTableBody = (data, highlightSearch = false) => {
+            const tableBody = $('excelTable').querySelector('tbody');
+            const searchInput = $('searchInput').value.toLowerCase();
             tableBody.innerHTML = '';
 
-            data.forEach((row, index) => {
-                let rowData = `<tr><td><input type="checkbox" class="row-checkbox" data-index="${index}"></td>`;
+            const rows = data.map((row, index) => {
+                let rowData = `<tr><td><input type="checkbox" class="row-checkbox" data-index="${index}" onclick="showSingleRecord(${index})"></td>`;
                 columnSelection.forEach(i => {
                     let cellValue = row[i] || '';
-                    let displayValue = XLSX.SSF.format('YYYY-MM-DD', cellValue); // Format date cells
+                    let displayValue = XLSX.SSF.format('YYYY-MM-DD', cellValue);
                     const highlightClass = highlightSearch && displayValue.toString().toLowerCase().includes(searchInput) ? 'highlight' : '';
                     const primaryKeyClass = (primaryKeyIndex === i) ? 'primary-key' : '';
                     rowData += `<td class="${highlightClass} ${primaryKeyClass}">${displayValue}</td>`;
                 });
-                rowData += '</tr>';
-                tableBody.innerHTML += rowData;
-            });
-        }
+                return rowData + '</tr>';
+            }).join('');
+            tableBody.innerHTML = rows;
+        };
 
-        function updateTableHeader() {
-            const headersRow = document.querySelector('#excelTable thead tr');
-            headersRow.innerHTML = '<th></th>'; // Add an extra header for the checkbox column
+        const updateTableBody2 = (data, highlightSearch = false) => {
+            const tableBody = $('excelTable2').querySelector('tbody');
+            tableBody.innerHTML = '';
+
+            const rows = data.map((row, index) => {
+                let rowData = `<tr><td><input type="checkbox" class="row-checkbox" data-index="${index}" onclick="showSingleRecord2(${index})"></td>`;
+                columnSelection2.forEach(i => {
+                    let cellValue = row[i] || '';
+                    let displayValue = XLSX.SSF.format('YYYY-MM-DD', cellValue);
+                    const highlightClass = highlightSearch && displayValue.toString().toLowerCase().includes(searchInput) ? 'highlight' : '';
+                    const primaryKeyClass = (primaryKeyIndex2 === i) ? 'primary-key' : '';
+                    rowData += `<td class="${highlightClass} ${primaryKeyClass}">${displayValue}</td>`;
+                });
+                return rowData + '</tr>';
+            }).join('');
+            tableBody.innerHTML = rows;
+        };
+
+        const updateTableHeader = () => {
+            const headersRow = $('excelTable').querySelector('thead tr');
+            headersRow.innerHTML = '<th></th>';
             columnSelection.forEach(index => {
                 const primaryKeyClass = (primaryKeyIndex === index) ? 'primary-key' : '';
                 headersRow.innerHTML += `<th id="header-${index}" onclick="sortTable(${index})" data-order="none" class="${primaryKeyClass}">${headers[index] || ''}</th>`;
             });
-        }
+        };
 
-        function sortTable(columnIndex) {
+        const sortTable = columnIndex => {
             const headers = document.querySelectorAll('th');
-            const currentOrder = headers[columnSelection.indexOf(columnIndex) + 1].getAttribute('data-order'); // Adjust for checkbox column
+            const currentOrder = headers[columnSelection.indexOf(columnIndex) + 1].getAttribute('data-order');
             const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
 
-            // Sort the filtered data
             filteredData.sort((a, b) => {
                 if (a[columnIndex] === undefined) return 1;
                 if (b[columnIndex] === undefined) return -1;
-                if (newOrder === 'asc') {
-                    return (a[columnIndex] > b[columnIndex]) ? 1 : ((a[columnIndex] < b[columnIndex]) ? -1 : 0);
-                } else {
-                    return (a[columnIndex] < b[columnIndex]) ? 1 : ((a[columnIndex] > b[columnIndex]) ? -1 : 0);
-                }
+                return newOrder === 'asc'
+                    ? (a[columnIndex] > b[columnIndex]) ? 1 : ((a[columnIndex] < b[columnIndex]) ? -1 : 0)
+                    : (a[columnIndex] < b[columnIndex]) ? 1 : ((a[columnIndex] > b[columnIndex]) ? -1 : 0);
             });
 
-            // Remove sort classes from all headers
             headers.forEach(header => {
                 header.classList.remove('sort-asc', 'sort-desc');
                 header.setAttribute('data-order', 'none');
             });
 
-            // Add sort class to the sorted column header
-            headers[columnSelection.indexOf(columnIndex) + 1].classList.add(newOrder === 'asc' ? 'sort-asc' : 'sort-desc'); // Adjust for checkbox column
+            headers[columnSelection.indexOf(columnIndex) + 1].classList.add(newOrder === 'asc' ? 'sort-asc' : 'sort-desc');
             headers[columnSelection.indexOf(columnIndex) + 1].setAttribute('data-order', newOrder);
 
-            // Update the table body with sorted data
-            updateTableBody(filteredData, headers.length, true); // Adjust for checkbox column
-        }
+            updateDisplay();
+        };
 
-        function handleSearch() {
-            const searchInput = document.getElementById('searchInput').value.toLowerCase();
-            filteredData = tableData.filter(row => 
-                row.some(cell => cell && cell.toString().toLowerCase().includes(searchInput))
-            );
+        const sortTable2 = columnIndex => {
+            const headers = document.querySelectorAll('#excelTable2 th');
+            const currentOrder = headers[columnSelection2.indexOf(columnIndex) + 1].getAttribute('data-order');
+            const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
 
-            updateTableBody(filteredData, headers.length, searchInput.length > 0);
-        }
+            filteredData2.sort((a, b) => {
+                if (a[columnIndex] === undefined) return 1;
+                if (b[columnIndex] === undefined) return -1;
+                return newOrder === 'asc'
+                    ? (a[columnIndex] > b[columnIndex]) ? 1 : ((a[columnIndex] < b[columnIndex]) ? -1 : 0)
+                    : (a[columnIndex] < b[columnIndex]) ? 1 : ((a[columnIndex] > b[columnIndex]) ? -1 : 0);
+            });
 
-        function clearSearchAndSelection() {
-            document.getElementById('searchInput').value = '';
+            headers.forEach(header => {
+                header.classList.remove('sort-asc', 'sort-desc');
+                header.setAttribute('data-order', 'none');
+            });
+
+            headers[columnSelection2.indexOf(columnIndex) + 1].classList.add(newOrder === 'asc' ? 'sort-asc' : 'sort-desc');
+            headers[columnSelection2.indexOf(columnIndex) + 1].setAttribute('data-order', newOrder);
+
+            updateTableBody2(filteredData2);
+        };
+
+        const handleSearch = debounce(() => {
+            const searchInput = $('searchInput').value.toLowerCase();
+            filteredData = tableData.filter(row => row.some(cell => cell && cell.toString().toLowerCase().includes(searchInput)));
+            updateDisplay(searchInput.length > 0);
+        }, 300);
+
+        const clearSearchAndSelection = () => {
+            $('searchInput').value = '';
             filteredData = tableData.slice();
-            updateTableBody(filteredData, headers.length);
+            updateDisplay();
             clearSelection();
-        }
+            $('recordView').style.display = 'none';
+            $('excelTable').style.display = 'table';
+            $('navigationButtons').style.display = 'none';
+        };
 
-        function clearSelection() {
-            const checkboxes = document.querySelectorAll('.row-checkbox');
-            checkboxes.forEach(checkbox => checkbox.checked = false);
-        }
+        const clearSelection = () => {
+            document.querySelectorAll('.row-checkbox').forEach(checkbox => checkbox.checked = false);
+        };
 
-        function selectAllColumns() {
-            const columnCheckboxes = document.querySelectorAll('#columnSelection input[type="checkbox"]');
-            columnCheckboxes.forEach(checkbox => checkbox.checked = true);
+        const selectAllColumns = () => {
+            document.querySelectorAll('#columnSelection input[type="checkbox"]').forEach(checkbox => checkbox.checked = true);
             columnSelection = headers.map((_, index) => index);
             updateTableHeader();
-            updateTableBody(filteredData, headers.length);
-        }
+            updateDisplay();
+        };
 
-        function deselectAllColumns() {
-            const columnCheckboxes = document.querySelectorAll('#columnSelection input[type="checkbox"]');
-            columnCheckboxes.forEach(checkbox => checkbox.checked = false);
+        const deselectAllColumns = () => {
+            document.querySelectorAll('#columnSelection input[type="checkbox"]').forEach(checkbox => checkbox.checked = false);
             columnSelection = [];
             updateTableHeader();
-            updateTableBody(filteredData, headers.length);
-        }
+            updateDisplay();
+        };
 
-        function copyRows() {
-            const exportFormat = document.getElementById('exportFormat').value;
+        const copyRows = () => {
+            const exportFormat = $('exportFormat').value;
             const delimiter = exportFormat === 'csv' ? ',' : '\t';
             const dataToCopy = filteredData;
             const selectedHeaders = columnSelection.map(index => headers[index]);
@@ -360,13 +498,12 @@
             document.execCommand('copy');
             document.body.removeChild(textArea);
             alert('Displayed rows copied to clipboard!');
-        }
+        };
 
-        function copySelectedRows() {
-            const exportFormat = document.getElementById('exportFormat').value;
+        const copySelectedRows = () => {
+            const exportFormat = $('exportFormat').value;
             const delimiter = exportFormat === 'csv' ? ',' : '\t';
-            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-            const selectedIndexes = Array.from(checkboxes).map(checkbox => parseInt(checkbox.getAttribute('data-index')));
+            const selectedIndexes = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(checkbox => parseInt(checkbox.getAttribute('data-index')));
             const selectedRows = selectedIndexes.map(index => filteredData[index]);
             const selectedHeaders = columnSelection.map(index => headers[index]);
             const csvContent = [selectedHeaders.join(delimiter), ...selectedRows.map(row => columnSelection.map(index => row[index]).join(delimiter))].join('\n');
@@ -377,23 +514,165 @@
             document.execCommand('copy');
             document.body.removeChild(textArea);
             alert('Selected rows copied to clipboard!');
-        }
+        };
 
-        function exportToExcel() {
+        const exportToExcel = () => {
             const selectedHeaders = columnSelection.map(index => headers[index]);
             const exportData = [selectedHeaders, ...filteredData.map(row => columnSelection.map(index => row[index]))];
             const worksheet = XLSX.utils.aoa_to_sheet(exportData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
             XLSX.writeFile(workbook, 'exported_data.xlsx');
-        }
+        };
 
-        function showOnlySelected() {
-            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-            const selectedIndexes = Array.from(checkboxes).map(checkbox => parseInt(checkbox.getAttribute('data-index')));
+        const showOnlySelected = () => {
+            const selectedIndexes = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(checkbox => parseInt(checkbox.getAttribute('data-index')));
             const selectedRows = selectedIndexes.map(index => filteredData[index]);
-            updateTableBody(selectedRows, headers.length);
-        }
+            updateTableBody(selectedRows);
+        };
+
+        const showSingleRecord = index => {
+            displayOption = 'single';
+            currentRecordIndex = index;
+            updateDisplay();
+            $('secondSheetControls').style.display = 'block';
+            filterSecondSheet();
+        };
+
+        const showSingleRecord2 = index => {
+            displayOption = 'single';
+            currentRecordIndex2 = index;
+            showRecord2(currentRecordIndex2);
+        };
+
+        const updateDisplay = highlightSearch => {
+            const table = $('excelTable');
+            const recordView = $('recordView');
+            const navigationButtons = $('navigationButtons');
+            const secondSheetControls = $('secondSheetControls');
+
+            if (displayOption === 'all') {
+                table.style.display = 'table';
+                recordView.style.display = 'none';
+                navigationButtons.style.display = 'none';
+                secondSheetControls.style.display = 'none';
+                updateTableBody(filteredData, highlightSearch);
+            } else if (displayOption === 'single') {
+                table.style.display = 'none';
+                navigationButtons.style.display = 'flex';
+                showRecord(currentRecordIndex);
+                secondSheetControls.style.display = 'block';
+            } else if (displayOption === 'ten') {
+                table.style.display = 'table';
+                recordView.style.display = 'none';
+                navigationButtons.style.display = 'flex';
+                secondSheetControls.style.display = 'none';
+                showRecords(currentRecordIndex, 10);
+            }
+        };
+
+        const showRecord = index => {
+            const recordView = $('recordView');
+            recordView.innerHTML = '';
+
+            const row = filteredData[index];
+            columnSelection.forEach(i => {
+                const fieldDiv = document.createElement('div');
+                const fieldLabel = document.createElement('strong');
+                fieldLabel.textContent = headers[i] + ': ';
+                fieldDiv.appendChild(fieldLabel);
+                fieldDiv.appendChild(document.createTextNode(row[i] || ''));
+                if (i === primaryKeyIndex) fieldDiv.classList.add('primary-key');
+                recordView.appendChild(fieldDiv);
+            });
+
+            recordView.style.display = 'flex';
+        };
+
+        const showRecord2 = index => {
+            const recordView = $('recordView2');
+            recordView.innerHTML = '';
+
+            const row = filteredData2[index];
+            columnSelection2.forEach(i => {
+                const fieldDiv = document.createElement('div');
+                const fieldLabel = document.createElement('strong');
+                fieldLabel.textContent = headers2[i] + ': ';
+                fieldDiv.appendChild(fieldLabel);
+                fieldDiv.appendChild(document.createTextNode(row[i] || ''));
+                if (i === primaryKeyIndex2) fieldDiv.classList.add('primary-key');
+                recordView.appendChild(fieldDiv);
+            });
+
+            recordView.style.display = 'flex';
+        };
+
+        const showRecords = (startIndex, count) => {
+            const dataToShow = filteredData.slice(startIndex, startIndex + count);
+            updateTableBody(dataToShow);
+        };
+
+        const previousRecord = () => {
+            if (displayOption === 'single') {
+                if (currentRecordIndex > 0) {
+                    currentRecordIndex--;
+                    showRecord(currentRecordIndex);
+                    filterSecondSheet();
+                }
+            } else if (displayOption === 'ten') {
+                if (currentRecordIndex > 0) {
+                    currentRecordIndex -= 10;
+                    showRecords(currentRecordIndex, 10);
+                }
+            }
+        };
+
+        const nextRecord = () => {
+            if (displayOption === 'single') {
+                if (currentRecordIndex < filteredData.length - 1) {
+                    currentRecordIndex++;
+                    showRecord(currentRecordIndex);
+                    filterSecondSheet();
+                }
+            } else if (currentRecordIndex + 10 < filteredData.length) {
+                currentRecordIndex += 10;
+                showRecords(currentRecordIndex, 10);
+            }
+        };
+
+        const previousRecord2 = () => {
+            if (currentRecordIndex2 > 0) {
+                currentRecordIndex2--;
+                showRecord2(currentRecordIndex2);
+            }
+        };
+
+        const nextRecord2 = () => {
+            if (currentRecordIndex2 < filteredData2.length - 1) {
+                currentRecordIndex2++;
+                showRecord2(currentRecordIndex2);
+            }
+        };
+
+        const filterSecondSheet = () => {
+            if (primaryKeyIndex === -1 || primaryKeyIndex2 === -1) return;
+
+            const primaryKeyValue = filteredData[currentRecordIndex][primaryKeyIndex];
+            filteredData2 = tableData2.filter(row => row[primaryKeyIndex2] == primaryKeyValue);
+            updateTableBody2(filteredData2);
+        };
+
+        $('fileInput').addEventListener('change', handleFile, false);
+        $('sheetSelect').addEventListener('change', handleSelectionChange, false);
+        $('headerRowInput').addEventListener('change', handleSelectionChange, false);
+        $('loadDataButton').addEventListener('click', handleLoadData, false);
+        $('primaryKeySelect').addEventListener('change', handlePrimaryKeyChange, false);
+        $('sheetSelect2').addEventListener('change', handleSelectionChange2, false);
+        $('headerRowInput2').addEventListener('change', handleSelectionChange2, false);
+        $('loadDataButton2').addEventListener('click', handleLoadData2, false);
+        $('primaryKeySelect2').addEventListener('change', handlePrimaryKeyChange2, false);
+        $('searchInput').addEventListener('input', handleSearch);
+        $('displayOption').addEventListener('change', handleDisplayOptionChange);
     </script>
 </body>
 </html>

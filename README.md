@@ -1,52 +1,82 @@
-# excelDB - Simple Excel File Query and Export
+# ExcelDB - Simple Excel File Query and Export
 
-excelDB is a lightweight web-based tool that allows you to easily query and export data from Excel files. With excelDB, you can upload an Excel file, search through the data, select specific columns and rows, and export the filtered data in either tab-separated, CSV, or Excel format.
+ExcelDB is a web application that allows users to upload Excel files, query data, and export the results. It supports sorting, searching, and selecting specific columns for display. Additionally, users can export the displayed data to Excel or copy it to the clipboard.
 
 ## Features
 
-- Upload and display Excel files
-- Select and filter columns to display
-- Search through the data
-- Sort data by column
-- Select a primary key field to highlight the column
-- Handle blank sheets with appropriate message
-- Copy displayed rows or selected rows to clipboard
-- Export data in tab-separated, CSV, or Excel format
-- Show only selected rows
+- **File Upload**: Upload Excel files directly from your computer.
+- **Sheet Selection**: Choose which sheet to load and display.
+- **Column Selection**: Select specific columns to display in the table.
+- **Primary Key Selection**: Designate a primary key for more efficient data handling.
+- **Search Functionality**: Search through the data with an input field.
+- **Sorting**: Sort data by clicking on the column headers.
+- **Export Options**: Export displayed or selected data to Excel or copy it to the clipboard.
+- **Display Options**: Choose to display all records, single records, or paginate through 10 records at a time.
+- **Multi-Sheet Support**: Load and display data from multiple sheets within the same workbook.
 
 ## Getting Started
 
-### Prerequisites
+To get started with ExcelDB, follow these simple steps:
 
-To use excelDB, you'll need a web browser with JavaScript enabled.
-
-### Installation
-
-1. Clone the repository:
-    ```bash
+1. **Clone the Repository**:
+    ```sh
     git clone https://github.com/yourusername/excelDB.git
     ```
-2. Navigate to the project directory:
-    ```bash
+2. **Navigate to the Project Directory**:
+    ```sh
     cd excelDB
     ```
-3. Open `index.html` in your web browser.
+3. **Open `index.html` in Your Web Browser**:
+    Simply open the `index.html` file in your favorite web browser to start using the application.
 
-### Usage
+## Usage
 
-1. Open `index.html` in your preferred web browser.
-2. Click the "Choose File" button to upload an Excel file.
-3. Use the "Header Row" input to specify the header row (1-based index).
-4. Use the "Primary Key" dropdown to select a primary key field.
-5. Use the "Select columns to display" checkboxes to choose which columns to display.
-6. Use the search bar to filter rows based on the search term.
-7. Click the column headers to sort the data.
-8. Use the "Copy Displayed Rows" button to copy the filtered and displayed rows to the clipboard.
-9. Use the "Copy Selected Rows" button to copy the selected rows to the clipboard.
-10. Use the "Export to Excel" button to export the displayed rows to an Excel file.
-11. Use the "Show Only Selected" button to display only the selected rows.
-12. Use the "Clear Search and Selection" button to reset the search and clear all selections.
-13. Select the export format (Tab-separated or CSV) before copying.
+### Uploading an Excel File
+
+1. Click on the "Choose File" button to upload an Excel file.
+2. Select the sheet you want to load from the dropdown menu.
+3. Specify the header row (1-based index) if it differs from the default value (1).
+4. Click the "Load Data" button to display the data.
+
+### Selecting Columns
+
+- Use the checkboxes under "Select columns to display" to choose which columns to display.
+- Use the "Select All" and "Deselect All" buttons to quickly select or deselect all columns.
+
+### Sorting Data
+
+- Click on the column headers to sort the data in ascending or descending order.
+
+### Searching Data
+
+- Use the search input field to filter the displayed data based on your search query.
+
+### Exporting Data
+
+- Click "Export to Excel" to export the displayed data to an Excel file.
+- Use the "Copy Displayed Rows" or "Copy Selected Rows" buttons to copy the data to your clipboard.
+
+### Display Options
+
+- Choose "Show All Records" to display all records.
+- Choose "Show Single Record" to display one record at a time and use navigation buttons to browse through records.
+- Choose "Show 10 Records at a Time" to paginate through records 10 at a time.
+
+## Contributing
+
+We welcome contributions! Please follow these steps to contribute:
+
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature/YourFeature`).
+3. Make your changes.
+4. Commit your changes (`git commit -m 'Add some feature'`).
+5. Push to the branch (`git push origin feature/YourFeature`).
+6. Open a pull request.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
 
 ## Versioning
 
@@ -57,6 +87,7 @@ excelDB uses [Semantic Versioning](https://semver.org/) for versioning.
 | v0.1.0  | Initial commit: Added core functionality for uploading, displaying, and exporting Excel file data.   | 2024-06-21 |
 | v0.1.1  | Added Excel export, merged clear buttons, fixed date display.                                        | 2024-06-25 |
 | v0.1.2  | Fix for identifying sheets that are blank, added Primary Key feature.                                | 2024-06-25 |
+| v0.1.3  | Added ability to load second sheet for primary key lookup.<br>Added single record view and 10 rows view by default.<br>Bug fixes and optimisation. | 2024-07-02 |
 
 
 ## Acknowledgments
