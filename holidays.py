@@ -22,9 +22,14 @@ class CustomHolidayCalendar(AbstractHolidayCalendar):
         ]
 
 # Function to create a holiday calendar for a given country code and year
-def create_holiday_calendar(country_code, year):
-    holidays = fetch_holidays(country_code, year)
-    return CustomHolidayCalendar(holidays=holidays)
+def create_holiday_calendar(country_code, years):
+    """Create a holiday calendar for a country spanning multiple years."""
+    if isinstance(years, int):
+        years = [years]
+    all_holidays = []
+    for yr in years:
+        all_holidays.extend(fetch_holidays(country_code, yr))
+    return CustomHolidayCalendar(holidays=all_holidays)
 
 # Function to calculate working days in a month minus holidays
 def calculate_working_days(start_date, end_date, holiday_calendar):
@@ -38,6 +43,11 @@ start_date = '2024-04-01'
 end_date = '2025-03-31'
 months = pd.date_range(start=start_date, end=end_date, freq='MS')
 
+# Determine the years spanned by the date range
+start_year = pd.to_datetime(start_date).year
+end_year = pd.to_datetime(end_date).year
+holiday_years = list(range(start_year, end_year + 1))
+
 # Country codes for the regions
 country_codes = {
     "METAR (Dubai)": "AE",
@@ -46,14 +56,11 @@ country_codes = {
     "Central (Germany)": "DE"
 }
 
-# Year for which we are fetching holidays
-year = 2024
-
-# Create holiday calendars for each region
-dubai_holidays = create_holiday_calendar(country_codes["METAR (Dubai)"], year)
-uk_holidays = create_holiday_calendar(country_codes["Northern (UK)"], year)
-france_holidays = create_holiday_calendar(country_codes["Western (France)"], year)
-germany_holidays = create_holiday_calendar(country_codes["Central (Germany)"], year)
+# Create holiday calendars for each region using all relevant years
+dubai_holidays = create_holiday_calendar(country_codes["METAR (Dubai)"], holiday_years)
+uk_holidays = create_holiday_calendar(country_codes["Northern (UK)"], holiday_years)
+france_holidays = create_holiday_calendar(country_codes["Western (France)"], holiday_years)
+germany_holidays = create_holiday_calendar(country_codes["Central (Germany)"], holiday_years)
 
 # Calculate man days for each region
 data = []
