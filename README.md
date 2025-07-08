@@ -26,7 +26,12 @@ To get started with ExcelDB, follow these simple steps:
     ```sh
     cd excelDB
     ```
-3. **Open `index.html` in Your Web Browser**:
+3. **Install Python Dependencies**:
+    Install the packages required for the helper scripts by running:
+    ```sh
+    pip install -r requirements.txt
+    ```
+4. **Open `index.html` in Your Web Browser**:
     Simply open the `index.html` file in your favorite web browser to start using the application.
 
 ## Usage
