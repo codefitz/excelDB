@@ -486,19 +486,34 @@
             updateDisplay();
         };
 
+        const copyToClipboard = text => {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(text).catch(() => {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                });
+            } else {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                return Promise.resolve();
+            }
+        };
+
         const copyRows = () => {
             const exportFormat = $('exportFormat').value;
             const delimiter = exportFormat === 'csv' ? ',' : '\t';
             const dataToCopy = filteredData;
             const selectedHeaders = columnSelection.map(index => headers[index]);
             const csvContent = [selectedHeaders.join(delimiter), ...dataToCopy.map(row => columnSelection.map(index => row[index]).join(delimiter))].join('\n');
-            const textArea = document.createElement('textarea');
-            textArea.value = csvContent;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            alert('Displayed rows copied to clipboard!');
+            copyToClipboard(csvContent).then(() => alert('Displayed rows copied to clipboard!'));
         };
 
         const copySelectedRows = () => {
@@ -508,13 +523,7 @@
             const selectedRows = selectedIndexes.map(index => filteredData[index]);
             const selectedHeaders = columnSelection.map(index => headers[index]);
             const csvContent = [selectedHeaders.join(delimiter), ...selectedRows.map(row => columnSelection.map(index => row[index]).join(delimiter))].join('\n');
-            const textArea = document.createElement('textarea');
-            textArea.value = csvContent;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            alert('Selected rows copied to clipboard!');
+            copyToClipboard(csvContent).then(() => alert('Selected rows copied to clipboard!'));
         };
 
         const exportToExcel = () => {
