@@ -404,7 +404,7 @@
         };
 
         const sortTable = columnIndex => {
-            const headers = document.querySelectorAll('th');
+            const headers = document.querySelectorAll('#excelTable th');
             const currentOrder = headers[columnSelection.indexOf(columnIndex) + 1].getAttribute('data-order');
             const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
 
