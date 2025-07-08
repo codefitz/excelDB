@@ -38,10 +38,12 @@ def calculate_working_days(start_date, end_date, holiday_calendar):
     working_days = all_days.difference(holidays)
     return len(working_days)
 
-# Define the date range and country codes
-start_date = '2024-04-01'
-end_date = '2025-03-31'
-months = pd.date_range(start=start_date, end=end_date, freq='MS')
+def main():
+    """Generate monthly man day counts and export them to CSV."""
+    # Define the date range and country codes
+    start_date = '2024-04-01'
+    end_date = '2025-03-31'
+    months = pd.date_range(start=start_date, end=end_date, freq='MS')
 
 # Determine the years spanned by the date range
 start_year = pd.to_datetime(start_date).year
@@ -62,21 +64,43 @@ uk_holidays = create_holiday_calendar(country_codes["Northern (UK)"], holiday_ye
 france_holidays = create_holiday_calendar(country_codes["Western (France)"], holiday_years)
 germany_holidays = create_holiday_calendar(country_codes["Central (Germany)"], holiday_years)
 
-# Calculate man days for each region
-data = []
-for month_start in months:
-    month_end = month_start + pd.offsets.MonthEnd(0)
-    dubai_days = calculate_working_days(month_start, month_end, dubai_holidays)
-    uk_days = calculate_working_days(month_start, month_end, uk_holidays)
-    france_days = calculate_working_days(month_start, month_end, france_holidays)
-    germany_days = calculate_working_days(month_start, month_end, germany_holidays)
-    data.append([month_start, month_end, dubai_days, uk_days, france_days, germany_days])
 
-# Create the dataframe
-df = pd.DataFrame(data, columns=["First Day of Month", "Last Day of Month", "METAR (Dubai)", "Northern (UK)", "Western (France)", "Central (Germany)"])
+    # Calculate man days for each region
+    data = []
+    for month_start in months:
+        month_end = month_start + pd.offsets.MonthEnd(0)
+        dubai_days = calculate_working_days(month_start, month_end, dubai_holidays)
+        uk_days = calculate_working_days(month_start, month_end, uk_holidays)
+        france_days = calculate_working_days(month_start, month_end, france_holidays)
+        germany_days = calculate_working_days(month_start, month_end, germany_holidays)
+        data.append([
+            month_start,
+            month_end,
+            dubai_days,
+            uk_days,
+            france_days,
+            germany_days,
+        ])
 
-# Export the dataframe to a CSV file
-output_path = "/mnt/data/man_days_per_month.csv"
-df.to_csv(output_path, index=False)
+    # Create the dataframe
+    df = pd.DataFrame(
+        data,
+        columns=[
+            "First Day of Month",
+            "Last Day of Month",
+            "METAR (Dubai)",
+            "Northern (UK)",
+            "Western (France)",
+            "Central (Germany)",
+        ],
+    )
 
-output_path
+    # Export the dataframe to a CSV file
+    output_path = "/mnt/data/man_days_per_month.csv"
+    df.to_csv(output_path, index=False)
+
+    print(output_path)
+
+
+if __name__ == "__main__":
+    main()
