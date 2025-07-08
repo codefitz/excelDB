@@ -378,6 +378,7 @@
 
         const updateTableBody2 = (data, highlightSearch = false) => {
             const tableBody = $('excelTable2').querySelector('tbody');
+            const searchInput = $('searchInput').value.toLowerCase();
             tableBody.innerHTML = '';
 
             const rows = data.map((row, index) => {
